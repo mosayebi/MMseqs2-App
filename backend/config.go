@@ -69,6 +69,8 @@ var defaultFileContent = []byte(`{
             "uniref"        : "~databases/uniref30_2103",
             "pdb"           : "~databases/pdb70",
             "environmental" : "~databases/colabfold_envdb_202108",
+            "omg"           : "~databases/OMG_prot50",
+            "envhog"        : "~databases/envhog",
 			"environmentalpair" : "~databases/spire_ctg10_2401_db",
             // paths for templates
             "pdb70"         : "~databases/pdb70",
@@ -159,6 +161,8 @@ type ConfigColabFoldPaths struct {
 	Uniref            string `json:"uniref"`
 	Pdb               string `json:"pdb"`
 	Environmental     string `json:"environmental"`
+	OMG               string `json:"omg"`
+	EnVhog            string `json:"envhog"`
 	EnvironmentalPair string `json:"environmentalpair"`
 	Pdb70             string `json:"pdb70"`
 	PdbDivided        string `json:"pdbdivided"`
