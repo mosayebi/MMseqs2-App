@@ -713,13 +713,15 @@ DB2="$6"
 DB3="$7"
 DB4="$8"
 DB5="$9"
-USE_ENV="$10"
-USE_OMG="$11"
-USE_ENVHOG="$12"
-USE_TEMPLATES="$13"
-FILTER="${14}"
-TAXONOMY="${15}"
-M8OUT="${16}"
+DB6="$10"
+USE_ENV="${11}"
+USE_OMG="${12}"
+USE_ENVHOG="${13}"
+USE_LOGAN="${14}"
+USE_TEMPLATES="${15}"
+FILTER="${16}"
+TAXONOMY="${17}"
+M8OUT="${18}"
 
 EXPAND_EVAL=inf
 ALIGN_EVAL=10
@@ -801,7 +803,7 @@ if [ "${USE_ENV}" = "1" ]; then
 fi
 `)
 			if parallel {
-				script.WriteString("\n)&\nwait\n")
+				script.WriteString("\n)&\n(\n")
 			}
 			script.WriteString(`
 if [ "${USE_OMG}" = "1" ]; then
@@ -823,7 +825,7 @@ if [ "${USE_OMG}" = "1" ]; then
 fi
 `)
 			if parallel {
-				script.WriteString("\n)&\nwait\n")
+				script.WriteString("\n)&\n(\n")
 			}
 			script.WriteString(`
 			if [ "${USE_ENVHOG}" = "1" ]; then
@@ -845,6 +847,28 @@ fi
 fi
 `)
 			if parallel {
+				script.WriteString("\n)&\n(\n")
+			}
+			script.WriteString(`
+			if [ "${USE_LOGAN}" = "1" ]; then
+  "${MMSEQS}" search "${BASE}/prof_res" "${DB6}" "${BASE}/res_logan" "${BASE}/tmp6" $SEARCH_PARAM
+  "${MMSEQS}" expandaln "${BASE}/prof_res" "${DB6}.idx" "${BASE}/res_logan" "${DB6}.idx" "${BASE}/res_logan_exp" -e ${EXPAND_EVAL} --expansion-mode 0 --db-load-mode 2
+  "${MMSEQS}" align "${BASE}/tmp6/latest/profile_1" "${DB6}.idx" "${BASE}/res_logan_exp" "${BASE}/res_logan_exp_realign" --db-load-mode 2 -e ${ALIGN_EVAL} --max-accept ${MAX_ACCEPT} --alt-ali 10 -a
+  "${MMSEQS}" filterresult "${BASE}/qdb" "${DB6}.idx" "${BASE}/res_logan_exp_realign" "${BASE}/res_logan_exp_realign_filter" --db-load-mode 2 --qid 0 --qsc $QSC --diff 0 --max-seq-id 1.0 --filter-min-enable 100
+  if [ "${M8OUT}" = "1" ]; then
+    "${MMSEQS}" filterresult "${BASE}/qdb" "${DB6}.idx" "${BASE}/res_logan_exp_realign_filter" "${BASE}/res_logan_exp_realign_filter_filter" --db-load-mode 2 ${FILTER_PARAM}
+    "${MMSEQS}" convertalis "${BASE}/qdb" "${DB6}.idx" "${BASE}/res_logan_exp_realign_filter_filter" "${BASE}/logan30.m8" --db-load-mode 2 --format-output query,target,fident,alnlen,mismatch,gapopen,qstart,qend,tstart,tend,evalue,bits,tseq
+    "${MMSEQS}" rmdb "${BASE}/res_logan_exp_realign_filter_filter"
+  else
+	"${MMSEQS}" result2msa "${BASE}/qdb" "${DB6}.idx" "${BASE}/res_logan_exp_realign_filter" "${BASE}/logan30.a3m" --msa-format-mode 6 --db-load-mode 2 --filter-msa ${FILTER} ${FILTER_PARAM}
+  fi
+  "${MMSEQS}" rmdb "${BASE}/res_logan_exp_realign_filter"
+  "${MMSEQS}" rmdb "${BASE}/res_logan_exp_realign"
+  "${MMSEQS}" rmdb "${BASE}/res_logan_exp"
+  "${MMSEQS}" rmdb "${BASE}/res_logan"
+fi
+`)
+			if parallel {
 				script.WriteString("\n)&\nwait\n")
 			}
 			script.WriteString(`
@@ -852,7 +876,7 @@ fi
 "${MMSEQS}" rmdb "${BASE}/qdb_h"
 "${MMSEQS}" rmdb "${BASE}/res"
 rm -f -- "${BASE}/prof_res"*
-rm -rf -- "${BASE}/tmp1" "${BASE}/tmp2" "${BASE}/tmp3" "${BASE}/tmp4" "${BASE}/tmp5"
+rm -rf -- "${BASE}/tmp1" "${BASE}/tmp2" "${BASE}/tmp3" "${BASE}/tmp4" "${BASE}/tmp5" "${BASE}/tmp6"
 `)
 		}
 		err = script.Close()
@@ -864,6 +888,7 @@ rm -rf -- "${BASE}/tmp1" "${BASE}/tmp2" "${BASE}/tmp3" "${BASE}/tmp4" "${BASE}/t
 		useEnv := isIn("env", modes) != -1
 		useOMG := isIn("omg", modes) != -1
 		useEnVhog := isIn("envhog", modes) != -1
+		useLogan := isIn("logan", modes) != -1
 		useTemplates := isIn("notemplates", modes) == -1
 		useFilter := isIn("nofilter", modes) == -1
 		taxonomy := isIn("taxonomy", modes) == 1
@@ -882,9 +907,11 @@ rm -rf -- "${BASE}/tmp1" "${BASE}/tmp2" "${BASE}/tmp3" "${BASE}/tmp4" "${BASE}/t
 			config.Paths.ColabFold.Environmental,
 			config.Paths.ColabFold.OMG,
 			config.Paths.ColabFold.EnVhog,
+			config.Paths.ColabFold.Logan,
 			strconv.Itoa(b2i[useEnv]),
 			strconv.Itoa(b2i[useOMG]),
 			strconv.Itoa(b2i[useEnVhog]),
+			strconv.Itoa(b2i[useLogan]),
 			strconv.Itoa(b2i[useTemplates]),
 			strconv.Itoa(b2i[useFilter]),
 			strconv.Itoa(b2i[taxonomy]),
@@ -997,6 +1024,14 @@ rm -rf -- "${BASE}/tmp1" "${BASE}/tmp2" "${BASE}/tmp3" "${BASE}/tmp4" "${BASE}/t
 						os.Remove(path)
 					}
 
+					if useLogan {
+						path = filepath.Join(resultBase, "logan30"+suffix)
+						if err := addFile(tw, path); err != nil {
+							return err
+						}
+						os.Remove(path)
+					}
+
 					if err := addFile(tw, scriptPath); err != nil {
 						return err
 					}
@@ -1042,6 +1077,7 @@ DB2="$6"
 USE_ENV="$7"
 USE_PAIRWISE="$8"
 PAIRING_STRATEGY="$9"
+mkdir -p "${BASE}"
 SEARCH_PARAM="--num-iterations 3 --db-load-mode 2 -a --k-score 'seq:96,prof:80' -e 0.1 --max-seqs 10000"
 EXPAND_PARAM="--expansion-mode 0 -e inf --expand-filter-clusters 0 --max-seq-id 0.95"
 export MMSEQS_CALL_DEPTH=1
