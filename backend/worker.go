@@ -187,7 +187,7 @@ func RunJob(request JobRequest, config ConfigRoot) (err error) {
 				}
 
 				select {
-				case <-time.After(1 * time.Hour):
+				case <-time.After(5 * time.Hour):
 					if err := KillCommand(cmd); err != nil {
 						log.Printf("Failed to kill: %s\n", err)
 					}
@@ -418,7 +418,7 @@ mv -f -- "${BASE}/query.lookup_tmp" "${BASE}/query.lookup"
 				}
 
 				select {
-				case <-time.After(1 * time.Hour):
+				case <-time.After(5 * time.Hour):
 					if err := KillCommand(cmd); err != nil {
 						log.Printf("Failed to kill: %s\n", err)
 					}
@@ -595,7 +595,7 @@ mv -f -- "${BASE}/query.lookup_tmp" "${BASE}/query.lookup"
 				}
 
 				select {
-				case <-time.After(1 * time.Hour):
+				case <-time.After(5 * time.Hour):
 					if err := KillCommand(cmd); err != nil {
 						log.Printf("Failed to kill: %s\n", err)
 					}
@@ -705,6 +705,10 @@ rm -rf "${BASE}/tmp"
 		} else {
 			parallel := config.Paths.ColabFold.ParallelStages
 			script.WriteString(`#!/bin/bash -e
+echo "$0 $*"
+echo
+set -x
+
 MMSEQS="$1"
 QUERY="$2"
 BASE="$4"
@@ -713,7 +717,7 @@ DB2="$6"
 DB3="$7"
 DB4="$8"
 DB5="$9"
-DB6="$10"
+DB6="${10}"
 USE_ENV="${11}"
 USE_OMG="${12}"
 USE_ENVHOG="${13}"
@@ -851,20 +855,17 @@ fi
 			}
 			script.WriteString(`
 			if [ "${USE_LOGAN}" = "1" ]; then
+  # Skip expandaln – search, align, filter directly on representative DB
   "${MMSEQS}" search "${BASE}/prof_res" "${DB6}" "${BASE}/res_logan" "${BASE}/tmp6" $SEARCH_PARAM
-  "${MMSEQS}" expandaln "${BASE}/prof_res" "${DB6}.idx" "${BASE}/res_logan" "${DB6}.idx" "${BASE}/res_logan_exp" -e ${EXPAND_EVAL} --expansion-mode 0 --db-load-mode 2
-  "${MMSEQS}" align "${BASE}/tmp6/latest/profile_1" "${DB6}.idx" "${BASE}/res_logan_exp" "${BASE}/res_logan_exp_realign" --db-load-mode 2 -e ${ALIGN_EVAL} --max-accept ${MAX_ACCEPT} --alt-ali 10 -a
-  "${MMSEQS}" filterresult "${BASE}/qdb" "${DB6}.idx" "${BASE}/res_logan_exp_realign" "${BASE}/res_logan_exp_realign_filter" --db-load-mode 2 --qid 0 --qsc $QSC --diff 0 --max-seq-id 1.0 --filter-min-enable 100
+  "${MMSEQS}" align "${BASE}/tmp6/latest/profile_1" "${DB6}" "${BASE}/res_logan" "${BASE}/res_logan_realign" --db-load-mode 2 -e ${ALIGN_EVAL} --max-accept ${MAX_ACCEPT} --alt-ali 10 -a
+  "${MMSEQS}" filterresult "${BASE}/qdb" "${DB6}" "${BASE}/res_logan_realign" "${BASE}/res_logan_realign_filter" --db-load-mode 2 --qid 0 --qsc $QSC --diff 0 --max-seq-id 1.0 --filter-min-enable 100
   if [ "${M8OUT}" = "1" ]; then
-    "${MMSEQS}" filterresult "${BASE}/qdb" "${DB6}.idx" "${BASE}/res_logan_exp_realign_filter" "${BASE}/res_logan_exp_realign_filter_filter" --db-load-mode 2 ${FILTER_PARAM}
-    "${MMSEQS}" convertalis "${BASE}/qdb" "${DB6}.idx" "${BASE}/res_logan_exp_realign_filter_filter" "${BASE}/logan30.m8" --db-load-mode 2 --format-output query,target,fident,alnlen,mismatch,gapopen,qstart,qend,tstart,tend,evalue,bits,tseq
-    "${MMSEQS}" rmdb "${BASE}/res_logan_exp_realign_filter_filter"
+    "${MMSEQS}" filterresult "${BASE}/qdb" "${DB6}" "${BASE}/res_logan_realign_filter" "${BASE}/res_logan_realign_filter_filter" --db-load-mode 2 ${FILTER_PARAM}
+    "${MMSEQS}" convertalis "${BASE}/qdb" "${DB6}" "${BASE}/res_logan_realign_filter_filter" "${BASE}/logan.m8" --db-load-mode 2 --format-output query,target,fident,alnlen,mismatch,gapopen,qstart,qend,tstart,tend,evalue,bits,tseq
+    "${MMSEQS}" rmdb "${BASE}/res_logan_realign_filter_filter"
   else
-	"${MMSEQS}" result2msa "${BASE}/qdb" "${DB6}.idx" "${BASE}/res_logan_exp_realign_filter" "${BASE}/logan30.a3m" --msa-format-mode 6 --db-load-mode 2 --filter-msa ${FILTER} ${FILTER_PARAM}
+    "${MMSEQS}" result2msa "${BASE}/qdb" "${DB6}" "${BASE}/res_logan_realign_filter" "${BASE}/logan.a3m" --msa-format-mode 6 --db-load-mode 2 --filter-msa ${FILTER} ${FILTER_PARAM}
   fi
-  "${MMSEQS}" rmdb "${BASE}/res_logan_exp_realign_filter"
-  "${MMSEQS}" rmdb "${BASE}/res_logan_exp_realign"
-  "${MMSEQS}" rmdb "${BASE}/res_logan_exp"
   "${MMSEQS}" rmdb "${BASE}/res_logan"
 fi
 `)
@@ -924,7 +925,7 @@ rm -rf -- "${BASE}/tmp1" "${BASE}/tmp2" "${BASE}/tmp3" "${BASE}/tmp4" "${BASE}/t
 		}
 
 		select {
-		case <-time.After(1 * time.Hour):
+		case <-time.After(5 * time.Hour):
 			if err := KillCommand(cmd); err != nil {
 				log.Printf("Failed to kill: %s\n", err)
 			}
@@ -1025,7 +1026,7 @@ rm -rf -- "${BASE}/tmp1" "${BASE}/tmp2" "${BASE}/tmp3" "${BASE}/tmp4" "${BASE}/t
 					}
 
 					if useLogan {
-						path = filepath.Join(resultBase, "logan30"+suffix)
+						path = filepath.Join(resultBase, "logan"+suffix)
 						if err := addFile(tw, path); err != nil {
 							return err
 						}
@@ -1172,7 +1173,7 @@ rm -rf -- "${BASE}/tmp"
 		}
 
 		select {
-		case <-time.After(1 * time.Hour):
+		case <-time.After(5 * time.Hour):
 			if err := KillCommand(cmd); err != nil {
 				log.Printf("Failed to kill: %s\n", err)
 			}
@@ -1285,7 +1286,7 @@ rm -rf -- "${BASE}/tmp"
 			return &JobExecutionError{err}
 		}
 		select {
-		case <-time.After(1 * time.Hour):
+		case <-time.After(5 * time.Hour):
 			if err := KillCommand(cmd); err != nil {
 				log.Printf("Failed to kill: %s\n", err)
 			}
